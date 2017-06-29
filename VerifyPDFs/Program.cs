@@ -100,6 +100,9 @@ namespace VerifyPDFs
                 {
                     using (var Reader = new PdfReader(file))
                     {
+                        if (!Reader.IsOpenedWithFullPermissions)
+                            return "The file is a secured pdf: " + file;
+
                         var NumberOfPages = Reader.NumberOfPages;
 
                         // Can be read by Ghostscript https://stackoverflow.com/a/3694338/7981551
