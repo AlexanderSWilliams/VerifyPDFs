@@ -166,7 +166,7 @@ namespace VerifyPDFs
                 Console.WriteLine(Error);
                 MoveFolder(Folder, ParentPath + "\\Errors");
             }
-            else if (Directory.GetFiles(Folder).Select(x => new FileInfo(x).Length).Sum() > 1900000000)
+            else if (Directory.GetFiles(Folder).Select(x => new FileInfo(x).Length).Sum() > 1950000000)
                 MoveFolder(Folder, ParentPath + "\\Large PDFs");
             else
                 MoveFolder(Folder, ParentPath + "\\Merge");
