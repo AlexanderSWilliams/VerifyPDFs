@@ -78,9 +78,6 @@ namespace VerifyPDFs
             if (!Directory.Exists(ParentPath + "\\Merge"))
                 Directory.CreateDirectory(ParentPath + "\\Merge");
 
-            if (!Directory.Exists(ParentPath + "\\Large PDFs"))
-                Directory.CreateDirectory(ParentPath + "\\Large PDFs");
-
             if (!Directory.Exists(ParentPath + "\\Errors"))
                 Directory.CreateDirectory(ParentPath + "\\Errors");
 
@@ -170,8 +167,6 @@ namespace VerifyPDFs
                 Console.WriteLine(Error);
                 MoveFolder(Folder, ParentPath + "\\Errors");
             }
-            else if (Directory.GetFiles(Folder).Select(x => new FileInfo(x).Length).Sum() > 1950000000)
-                MoveFolder(Folder, ParentPath + "\\Large PDFs");
             else
                 MoveFolder(Folder, ParentPath + "\\Merge");
         }
