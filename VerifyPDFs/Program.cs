@@ -31,7 +31,7 @@ namespace VerifyPDFs
             }
         }
 
-        public static void MoveFolder(string folder, string path)
+        public static string MoveFolder(string folder, string path)
         {
             var FolderName = System.IO.Path.GetFileName(folder);
             var FolderSpaceIndex = FolderName.LastIndexOf(' ');
@@ -63,78 +63,90 @@ namespace VerifyPDFs
 
             Directory.Move(folder, path + "\\" + FolderName + Suffix);
             File.Delete(path + "\\" + FolderName + Suffix + "\\processing.txt");
+
+            return path + "\\" + FolderName + Suffix;
         }
 
         public static string PDFFolderErrors(string ghostScriptPath, string folder)
         {
-            File.WriteAllText(folder + "\\processing.txt", "");
-
-            var PDFFiles = Directory.GetFiles(folder, "*.pdf");
-            if (!PDFFiles.Any())
-                return "There are no pdf files in " + folder;
-            var FolderName = System.IO.Path.GetFileName(folder);
-            var ParentPath = Directory.GetParent(Directory.GetParent(folder).ToString()).ToString();
-
-            if (!Directory.Exists(ParentPath + "\\Merge"))
-                Directory.CreateDirectory(ParentPath + "\\Merge");
-
-            if (!Directory.Exists(ParentPath + "\\Errors"))
-                Directory.CreateDirectory(ParentPath + "\\Errors");
-
-            // Not empty
-            if (!Directory.EnumerateFiles(folder, "*.pdf").Any())
-                return "The folder does not contain any pdf files: " + folder;
-
-            // No subfolders
-            if (Directory.EnumerateDirectories(folder).Any())
-                return "The folder contains a subdirectory: " + folder;
-
-            // Just pdf files
-            var Files = Directory.EnumerateFiles(folder).Where(x => System.IO.Path.GetFileName(x) != "processing.txt").ToArray();
-            if (Files.Where(x => System.IO.Path.GetExtension(x).ToLower() != ".pdf").Any())
-                return "The folder contains non-pdf file: " + folder;
-
-            // Can be read by ITextSharp (valid pdf without password)
-            foreach (var file in Files)
+            try
             {
-                try
+                File.WriteAllText(folder + "\\processing.txt", "");
+
+                var PDFFiles = Directory.GetFiles(folder, "*.pdf");
+                if (!PDFFiles.Any())
+                    return "Error - There are no PDF’s inside this folder: " + folder;
+                var FolderName = System.IO.Path.GetFileName(folder);
+                var ParentPath = Directory.GetParent(Directory.GetParent(folder).ToString()).ToString();
+
+                if (!Directory.Exists(ParentPath + "\\Merge"))
+                    Directory.CreateDirectory(ParentPath + "\\Merge");
+
+                if (!Directory.Exists(ParentPath + "\\Errors"))
+                    Directory.CreateDirectory(ParentPath + "\\Errors");
+
+                if (!Directory.Exists(ParentPath + "\\Logs"))
+                    Directory.CreateDirectory(ParentPath + "\\Logs");
+
+                // Not empty
+                if (!Directory.EnumerateFiles(folder, "*.pdf").Any())
+                    return "The folder does not contain any pdf files: " + folder;
+
+                // No subfolders
+                if (Directory.EnumerateDirectories(folder).Any())
+                    return "Error - There are subfolders inside this folder: " + folder;
+
+                // Just pdf files
+                var Files = Directory.EnumerateFiles(folder).Where(x => System.IO.Path.GetFileName(x) != "processing.txt").ToArray();
+                if (Files.Where(x => System.IO.Path.GetExtension(x).ToLower() != ".pdf").Any())
+                    return "Error - There are non-PDF files inside this folder: " + folder;
+
+                // Can be read by ITextSharp (valid pdf without password)
+                foreach (var file in Files)
+                {
+                    try
+                    {
+                        using (var Reader = new PdfReader(file))
+                        {
+                            if (!Reader.IsOpenedWithFullPermissions)
+                                return "Error - The following file is secured: " + file;
+
+                            var NumberOfPages = Reader.NumberOfPages;
+
+                            // Can be read by Ghostscript https://stackoverflow.com/a/3694338/7981551
+                            if (ExecuteProcess(ghostScriptPath, "-dLastPage=\"1\" -dNOPAUSE -dNODISPLAY -o nul -sDEVICE=nullpage \"" + file + "\"")[1].Length > 0)
+                                return "Ghostscript cannot read the file: " + file;
+
+                            if (ExecuteProcess(ghostScriptPath, "-dFirstPage=\"" + NumberOfPages + "\" -dNOPAUSE -dNODISPLAY -o nul -sDEVICE=nullpage \"" + file + "\"")[1].Length > 0)
+                                return "Ghostscript cannot read the file: " + file;
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        return "Error - The following file is corrupt or it is password protected: " + file;
+                    }
+                }
+
+                // Not an active form or portfolio
+                foreach (var file in Files)
                 {
                     using (var Reader = new PdfReader(file))
                     {
-                        if (!Reader.IsOpenedWithFullPermissions)
-                            return "The file is a secured pdf: " + file;
+                        if (Reader.AcroFields.Fields.Any())
+                            return "Error - The following file is an active form: " + file;
 
-                        var NumberOfPages = Reader.NumberOfPages;
-
-                        // Can be read by Ghostscript https://stackoverflow.com/a/3694338/7981551
-                        if (ExecuteProcess(ghostScriptPath, "-dLastPage=\"1\" -dNOPAUSE -dNODISPLAY -o nul -sDEVICE=nullpage \"" + file + "\"")[1].Length > 0)
-                            return "Ghostscript cannot read the file: " + file;
-
-                        if (ExecuteProcess(ghostScriptPath, "-dFirstPage=\"" + NumberOfPages + "\" -dNOPAUSE -dNODISPLAY -o nul -sDEVICE=nullpage \"" + file + "\"")[1].Length > 0)
-                            return "Ghostscript cannot read the file: " + file;
+                        var Portfolio = Reader.Catalog.GetAsDict(PdfName.COLLECTION);
+                        if (Portfolio != null)
+                            return "Error - The following file is a portfolio: " + file;
                     }
                 }
-                catch (Exception e)
-                {
-                    return "ITextSharp cannot read the file: " + file;
-                }
-            }
 
-            // Not an active form or portfolio
-            foreach (var file in Files)
+                return null;
+            }
+            catch (Exception e)
             {
-                using (var Reader = new PdfReader(file))
-                {
-                    if (Reader.AcroFields.Fields.Any())
-                        return "The file has an AcroField Fields: " + file;
-
-                    var Portfolio = Reader.Catalog.GetAsDict(PdfName.COLLECTION);
-                    if (Portfolio != null)
-                        return "The file has is a portfolio: " + file;
-                }
+                return e.ToString();
             }
-
-            return null;
         }
 
         private static void Main(string[] args)
@@ -154,7 +166,7 @@ namespace VerifyPDFs
 
             if (Folder == null)
             {
-                Console.WriteLine("The process folder has no new subfolders: " + ProcessFolderPath);
+                Console.WriteLine("Error - There are no folders to process: " + ProcessFolderPath);
                 return;
             }
 
@@ -165,7 +177,7 @@ namespace VerifyPDFs
             if (Error != null)
             {
                 Console.WriteLine(Error);
-                MoveFolder(Folder, ParentPath + "\\Errors");
+                File.WriteAllText(ParentPath + "\\Logs\\" + Path.GetFileName(MoveFolder(Folder, ParentPath + "\\Errors")) + ".txt", Error);
             }
             else
                 MoveFolder(Folder, ParentPath + "\\Merge");
