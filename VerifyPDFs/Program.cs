@@ -70,11 +70,8 @@ namespace VerifyPDFs
         {
             try
             {
-                var PDFFiles = Directory.GetFiles(folder, "*.pdf");
-                if (!PDFFiles.Any())
-                    return "Error - There are no PDF’s inside this folder: " + folder;
                 var FolderName = System.IO.Path.GetFileName(folder);
-                var ParentPath = Directory.GetParent(folder).ToString();
+                var ParentPath = Directory.GetParent(Directory.GetParent(folder).ToString()).ToString();
 
                 if (!Directory.Exists(ParentPath + "\\Merge"))
                     Directory.CreateDirectory(ParentPath + "\\Merge");
@@ -84,6 +81,10 @@ namespace VerifyPDFs
 
                 if (!Directory.Exists(ParentPath + "\\Logs"))
                     Directory.CreateDirectory(ParentPath + "\\Logs");
+
+                var PDFFiles = Directory.GetFiles(folder, "*.pdf");
+                if (!PDFFiles.Any())
+                    return "Error - There are no PDF’s inside this folder: " + folder;
 
                 // Not empty
                 if (!Directory.EnumerateFiles(folder, "*.pdf").Any())
