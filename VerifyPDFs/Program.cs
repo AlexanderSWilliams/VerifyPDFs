@@ -74,7 +74,7 @@ namespace VerifyPDFs
                 if (!PDFFiles.Any())
                     return "Error - There are no PDF’s inside this folder: " + folder;
                 var FolderName = System.IO.Path.GetFileName(folder);
-                var ParentPath = Directory.GetParent(Directory.GetParent(folder).ToString()).ToString();
+                var ParentPath = Directory.GetParent(folder).ToString();
 
                 if (!Directory.Exists(ParentPath + "\\Merge"))
                     Directory.CreateDirectory(ParentPath + "\\Merge");
