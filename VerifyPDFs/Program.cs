@@ -62,7 +62,6 @@ namespace VerifyPDFs
             var Suffix = FolderNumbers.Any() ? " " + NextNumber.ToString().PadLeft(3, '0') : "";
 
             Directory.Move(folder, path + "\\" + FolderName + Suffix);
-            File.Delete(path + "\\" + FolderName + Suffix + "\\processing.txt");
 
             return path + "\\" + FolderName + Suffix;
         }
@@ -71,8 +70,6 @@ namespace VerifyPDFs
         {
             try
             {
-                File.WriteAllText(folder + "\\processing.txt", "");
-
                 var PDFFiles = Directory.GetFiles(folder, "*.pdf");
                 if (!PDFFiles.Any())
                     return "Error - There are no PDF’s inside this folder: " + folder;
@@ -97,7 +94,7 @@ namespace VerifyPDFs
                     return "Error - There are subfolders inside this folder: " + folder;
 
                 // Just pdf files
-                var Files = Directory.EnumerateFiles(folder).Where(x => System.IO.Path.GetFileName(x) != "processing.txt").ToArray();
+                var Files = Directory.EnumerateFiles(folder).ToArray();
                 if (Files.Where(x => System.IO.Path.GetExtension(x).ToLower() != ".pdf").Any())
                     return "Error - There are non-PDF files inside this folder: " + folder;
 
@@ -157,18 +154,8 @@ namespace VerifyPDFs
                 return;
             }
 
-            var ProcessFolderPath = args[0].TrimEnd(new[] { '\\' });
+            var Folder = args[0].TrimEnd(new[] { '\\' });
             var GhostScriptPath = args[1];
-
-            var Folder = Directory.GetDirectories(ProcessFolderPath)
-                .Where(x => !Directory.GetFiles(x, "*.txt").Any(y => y.EndsWith("processing.txt")))
-                .OrderBy(x => Directory.GetLastWriteTime(x)).FirstOrDefault();
-
-            if (Folder == null)
-            {
-                Console.WriteLine("Error - There are no folders to process: " + ProcessFolderPath);
-                return;
-            }
 
             var FolderName = System.IO.Path.GetFileName(Folder);
             var ParentPath = Directory.GetParent(Directory.GetParent(Folder).ToString()).ToString();
